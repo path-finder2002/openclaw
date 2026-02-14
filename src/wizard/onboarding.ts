@@ -8,7 +8,6 @@ import type { OpenClawConfig } from "../config/config.js";
 import type { RuntimeEnv } from "../runtime.js";
 import type { QuickstartGatewayDefaults, WizardFlow } from "./onboarding.types.js";
 import { ensureAuthProfileStore } from "../agents/auth-profiles.js";
-import { listChannelPlugins } from "../channels/plugins/index.js";
 import { formatCliCommand } from "../cli/command-format.js";
 import { promptAuthChoiceGrouped } from "../commands/auth-choice-prompt.js";
 import {
@@ -17,7 +16,6 @@ import {
   warnIfModelConfigLooksOff,
 } from "../commands/auth-choice.js";
 import { applyPrimaryModel, promptDefaultModel } from "../commands/model-picker.js";
-import { setupChannels } from "../commands/onboard-channels.js";
 import {
   applyWizardMetadata,
   DEFAULT_WORKSPACE,
@@ -351,6 +349,9 @@ export async function runOnboardingWizard(
 
   const workspaceDir = resolveUserPath(workspaceInput.trim() || DEFAULT_WORKSPACE);
 
+  const shouldRunOnboardingTutorial =
+    !opts.skipUi && baseConfig.wizard?.onboardingTutorialCompleted !== true;
+
   let nextConfig: OpenClawConfig = {
     ...baseConfig,
     agents: {
@@ -418,23 +419,10 @@ export async function runOnboardingWizard(
   nextConfig = gateway.nextConfig;
   const settings = gateway.settings;
 
-  if (opts.skipChannels ?? opts.skipProviders) {
-    await prompter.note("Skipping channel setup.", "Channels");
-  } else {
-    const quickstartAllowFromChannels =
-      flow === "quickstart"
-        ? listChannelPlugins()
-            .filter((plugin) => plugin.meta.quickstartAllowFrom)
-            .map((plugin) => plugin.id)
-        : [];
-    nextConfig = await setupChannels(nextConfig, runtime, prompter, {
-      allowSignalInstall: true,
-      forceAllowFromChannels: quickstartAllowFromChannels,
-      skipDmPolicyPrompt: flow === "quickstart",
-      skipConfirm: flow === "quickstart",
-      quickstartDefaults: flow === "quickstart",
-    });
-  }
+  await prompter.note(
+    `Channel setup was skipped in onboarding. Add channels later (optional): ${formatCliCommand("openclaw channels add")}`,
+    "Channels (optional)",
+  );
 
   await writeConfigFile(nextConfig);
   logConfigUpdated(runtime);
@@ -454,16 +442,26 @@ export async function runOnboardingWizard(
   nextConfig = applyWizardMetadata(nextConfig, { command: "onboard", mode });
   await writeConfigFile(nextConfig);
 
-  const { launchedTui } = await finalizeOnboardingWizard({
+  const { launchedTui, tutorialCompleted } = await finalizeOnboardingWizard({
     flow,
     opts,
     baseConfig,
     nextConfig,
     workspaceDir,
     settings,
+    shouldRunOnboardingTutorial,
     prompter,
     runtime,
   });
+  if (tutorialCompleted) {
+    nextConfig = applyWizardMetadata(nextConfig, {
+      command: "onboard",
+      mode,
+      onboardingTutorialCompleted: true,
+    });
+    await writeConfigFile(nextConfig);
+  }
+
   if (launchedTui) {
     return;
   }

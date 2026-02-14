@@ -8,7 +8,7 @@ title: "Getting Started"
 
 # Getting Started
 
-Goal: go from zero to a first working chat with minimal setup.
+Goal: configure API access and complete a message send test with minimal setup.
 
 <Info>
 Fastest chat: open the Control UI (no channel setup needed). Run `openclaw dashboard`
@@ -52,27 +52,29 @@ Check your Node version with `node --version` if you are unsure.
     openclaw onboard --install-daemon
     ```
 
-    The wizard configures auth, gateway settings, and optional channels.
-    See [Onboarding Wizard](/start/wizard) for details.
+    The wizard now uses a completion-first sequence and guides only one path.
 
   </Step>
-  <Step title="Check the Gateway">
-    If you installed the service, it should already be running:
-
+  <Step title="Gateway check">
     ```bash
-    openclaw gateway status
+    openclaw gateway status --probe
     ```
-
   </Step>
-  <Step title="Open the Control UI">
+  <Step title="Dashboard launch">
     ```bash
-    openclaw dashboard
+    openclaw dashboard --no-open
     ```
+  </Step>
+  <Step title="Test message round trip">
+    Send one message from Dashboard and confirm one reply.
+  </Step>
+  <Step title="Success confirmation">
+    If all steps pass, onboarding shows completion.
   </Step>
 </Steps>
 
 <Check>
-If the Control UI loads, your Gateway is ready for use.
+If these steps pass, your setup is complete.
 </Check>
 
 ## Optional checks and extras

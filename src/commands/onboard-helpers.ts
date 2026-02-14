@@ -91,7 +91,7 @@ export function printWizardHeader(runtime: RuntimeEnv) {
 
 export function applyWizardMetadata(
   cfg: OpenClawConfig,
-  params: { command: string; mode: OnboardMode },
+  params: { command: string; mode: OnboardMode; onboardingTutorialCompleted?: boolean },
 ): OpenClawConfig {
   const commit = process.env.GIT_COMMIT?.trim() || process.env.GIT_SHA?.trim() || undefined;
   return {
@@ -103,6 +103,8 @@ export function applyWizardMetadata(
       lastRunCommit: commit,
       lastRunCommand: params.command,
       lastRunMode: params.mode,
+      onboardingTutorialCompleted:
+        params.onboardingTutorialCompleted ?? cfg.wizard?.onboardingTutorialCompleted,
     },
   };
 }

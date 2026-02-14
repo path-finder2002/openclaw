@@ -9,6 +9,8 @@ sidebarTitle: "Onboarding: CLI"
 
 # Onboarding Wizard (CLI)
 
+Goal of the first-run tutorial: configure API access and complete a message send test.
+
 The onboarding wizard is the **recommended** way to set up OpenClaw on macOS,
 Linux, or Windows (via WSL2; strongly recommended).
 It configures a local Gateway or a remote Gateway connection, plus channels, skills,
@@ -60,15 +62,20 @@ The wizard starts with **QuickStart** (defaults) vs **Advanced** (full control).
 
 ## What the wizard configures
 
-**Local mode (default)** walks you through these steps:
+**Local mode (default)** configures auth/workspace/gateway, then runs this fixed completion-first sequence:
 
-1. **Model/Auth** — Anthropic API key (recommended), OAuth, OpenAI, or other providers. Pick a default model.
-2. **Workspace** — Location for agent files (default `~/.openclaw/workspace`). Seeds bootstrap files.
-3. **Gateway** — Port, bind address, auth mode, Tailscale exposure.
-4. **Channels** — WhatsApp, Telegram, Discord, Google Chat, Mattermost, Signal, BlueBubbles, or iMessage.
-5. **Daemon** — Installs a LaunchAgent (macOS) or systemd user unit (Linux/WSL2).
-6. **Health check** — Starts the Gateway and verifies it's running.
-7. **Skills** — Installs recommended skills and optional dependencies.
+1. **Gateway check** — Verify the Gateway is reachable.
+2. **Dashboard launch** — Open the Dashboard link.
+3. **Test message round trip** — Send once and confirm one reply.
+4. **Success confirmation** — Wizard marks onboarding complete.
+
+If a step fails, the wizard shows exactly one next command to run.
+
+Channel integration is now separated from the core flow. Add channels later (optional):
+
+```bash
+openclaw channels add
+```
 
 <Note>
 Re-running the wizard does **not** wipe anything unless you explicitly choose **Reset** (or pass `--reset`).

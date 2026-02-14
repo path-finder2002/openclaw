@@ -55,6 +55,7 @@ export type OpenClawConfig = {
     lastRunCommit?: string;
     lastRunCommand?: string;
     lastRunMode?: "local" | "remote";
+    onboardingTutorialCompleted?: boolean;
   };
   diagnostics?: DiagnosticsConfig;
   logging?: LoggingConfig;

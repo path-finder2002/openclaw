@@ -120,6 +120,7 @@ export const OpenClawSchema = z
         lastRunCommit: z.string().optional(),
         lastRunCommand: z.string().optional(),
         lastRunMode: z.union([z.literal("local"), z.literal("remote")]).optional(),
+        onboardingTutorialCompleted: z.boolean().optional(),
       })
       .strict()
       .optional(),

@@ -18,7 +18,6 @@ const readConfigFileSnapshot = vi.hoisted(() =>
 const ensureSystemdUserLingerInteractive = vi.hoisted(() => vi.fn(async () => {}));
 const isSystemdUserServiceAvailable = vi.hoisted(() => vi.fn(async () => true));
 const ensureControlUiAssetsBuilt = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
-const runTui = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock("../commands/onboard-channels.js", () => ({
   setupChannels,
@@ -67,10 +66,6 @@ vi.mock("../daemon/systemd.js", () => ({
 
 vi.mock("../infra/control-ui-assets.js", () => ({
   ensureControlUiAssetsBuilt,
-}));
-
-vi.mock("../tui/tui.js", () => ({
-  runTui,
 }));
 
 describe("runOnboardingWizard", () => {
@@ -167,27 +162,19 @@ describe("runOnboardingWizard", () => {
     expect(setupChannels).not.toHaveBeenCalled();
     expect(setupSkills).not.toHaveBeenCalled();
     expect(healthCommand).not.toHaveBeenCalled();
-    expect(runTui).not.toHaveBeenCalled();
   });
 
-  it("launches TUI without auto-delivery when hatching", async () => {
-    runTui.mockClear();
-
+  it("pauses onboarding tutorial when dashboard step is not confirmed", async () => {
+    const prevOpenAiKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "test-key";
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-onboard-"));
     await fs.writeFile(path.join(workspaceDir, DEFAULT_BOOTSTRAP_FILENAME), "{}");
 
-    const select: WizardPrompter["select"] = vi.fn(async (opts) => {
-      if (opts.message === "How do you want to hatch your bot?") {
-        return "tui";
-      }
-      return "quickstart";
-    });
-
     const prompter: WizardPrompter = {
       intro: vi.fn(async () => {}),
       outro: vi.fn(async () => {}),
       note: vi.fn(async () => {}),
-      select,
+      select: vi.fn(async () => "quickstart"),
       multiselect: vi.fn(async () => []),
       text: vi.fn(async () => ""),
       confirm: vi.fn(async () => false),
@@ -218,36 +205,101 @@ describe("runOnboardingWizard", () => {
       prompter,
     );
 
-    expect(runTui).toHaveBeenCalledWith(
-      expect.objectContaining({
-        deliver: false,
-        message: "Wake up, my friend!",
-      }),
+    expect(prompter.outro).toHaveBeenCalledWith(
+      "Onboarding paused. Run the single next command shown for the failed step and retry.",
     );
 
     await fs.rm(workspaceDir, { recursive: true, force: true });
+    if (prevOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = prevOpenAiKey;
+    }
   });
 
-  it("offers TUI hatch even without BOOTSTRAP.md", async () => {
-    runTui.mockClear();
-
+  it("uses Japanese tutorial copy when locale is ja", async () => {
+    const prevLocale = process.env.OPENCLAW_LOCALE;
+    const prevOpenAiKey = process.env.OPENAI_API_KEY;
+    process.env.OPENCLAW_LOCALE = "ja-JP";
+    process.env.OPENAI_API_KEY = "test-key";
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-onboard-"));
 
-    const select: WizardPrompter["select"] = vi.fn(async (opts) => {
-      if (opts.message === "How do you want to hatch your bot?") {
-        return "tui";
+    try {
+      const prompter: WizardPrompter = {
+        intro: vi.fn(async () => {}),
+        outro: vi.fn(async () => {}),
+        note: vi.fn(async () => {}),
+        select: vi.fn(async () => "quickstart"),
+        multiselect: vi.fn(async () => []),
+        text: vi.fn(async () => ""),
+        confirm: vi.fn(async () => false),
+        progress: vi.fn(() => ({ update: vi.fn(), stop: vi.fn() })),
+      };
+
+      const runtime: RuntimeEnv = {
+        log: vi.fn(),
+        error: vi.fn(),
+        exit: vi.fn((code: number) => {
+          throw new Error(`exit:${code}`);
+        }),
+      };
+
+      await runOnboardingWizard(
+        {
+          acceptRisk: true,
+          flow: "quickstart",
+          mode: "local",
+          workspace: workspaceDir,
+          authChoice: "skip",
+          skipProviders: true,
+          skipSkills: true,
+          skipHealth: true,
+          installDaemon: false,
+        },
+        runtime,
+        prompter,
+      );
+
+      const calls = (prompter.note as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+      expect(
+        calls.some(
+          (call) => typeof call?.[0] === "string" && String(call[0]).includes("Gateway確認"),
+        ),
+      ).toBe(true);
+    } finally {
+      await fs.rm(workspaceDir, { recursive: true, force: true });
+      if (prevLocale === undefined) {
+        delete process.env.OPENCLAW_LOCALE;
+      } else {
+        process.env.OPENCLAW_LOCALE = prevLocale;
       }
-      return "quickstart";
-    });
+      if (prevOpenAiKey === undefined) {
+        delete process.env.OPENAI_API_KEY;
+      } else {
+        process.env.OPENAI_API_KEY = prevOpenAiKey;
+      }
+    }
+  });
+
+  it("marks tutorial as completed after first successful run", async () => {
+    const prevOpenAiKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "test-key";
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-onboard-"));
+
+    const confirm = vi
+      .fn<WizardPrompter["confirm"]>()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValue(true);
 
     const prompter: WizardPrompter = {
       intro: vi.fn(async () => {}),
       outro: vi.fn(async () => {}),
       note: vi.fn(async () => {}),
-      select,
+      select: vi.fn(async () => "quickstart"),
       multiselect: vi.fn(async () => []),
       text: vi.fn(async () => ""),
-      confirm: vi.fn(async () => false),
+      confirm,
       progress: vi.fn(() => ({ update: vi.fn(), stop: vi.fn() })),
     };
 
@@ -275,17 +327,18 @@ describe("runOnboardingWizard", () => {
       prompter,
     );
 
-    expect(runTui).toHaveBeenCalledWith(
-      expect.objectContaining({
-        deliver: false,
-        message: undefined,
-      }),
-    );
+    const lastWriteArg = writeConfigFile.mock.calls.at(-1)?.[0];
+    expect(lastWriteArg?.wizard?.onboardingTutorialCompleted).toBe(true);
 
     await fs.rm(workspaceDir, { recursive: true, force: true });
+    if (prevOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = prevOpenAiKey;
+    }
   });
 
-  it("shows the web search hint at the end of onboarding", async () => {
+  it("shows optional channel setup hint at the end of onboarding", async () => {
     const prevBraveKey = process.env.BRAVE_API_KEY;
     delete process.env.BRAVE_API_KEY;
 
@@ -325,7 +378,7 @@ describe("runOnboardingWizard", () => {
 
       const calls = (note as unknown as { mock: { calls: unknown[][] } }).mock.calls;
       expect(calls.length).toBeGreaterThan(0);
-      expect(calls.some((call) => call?.[1] === "Web search (optional)")).toBe(true);
+      expect(calls.some((call) => call?.[1] === "Channels (optional)")).toBe(true);
     } finally {
       if (prevBraveKey === undefined) {
         delete process.env.BRAVE_API_KEY;
