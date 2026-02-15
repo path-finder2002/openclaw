@@ -306,12 +306,14 @@ export function createSessionActions(context: SessionActionContext) {
         verboseLevel?: string;
       };
       state.currentSessionId = typeof record.sessionId === "string" ? record.sessionId : null;
+      const messages = Array.isArray(record.messages) ? record.messages : [];
+      state.historyMessageCount = messages.length;
       state.sessionInfo.thinkingLevel = record.thinkingLevel ?? state.sessionInfo.thinkingLevel;
       state.sessionInfo.verboseLevel = record.verboseLevel ?? state.sessionInfo.verboseLevel;
       const showTools = (state.sessionInfo.verboseLevel ?? "off") !== "off";
       chatLog.clearAll();
       chatLog.addSystem(`session ${state.currentSessionKey}`);
-      for (const entry of record.messages ?? []) {
+      for (const entry of messages) {
         if (!entry || typeof entry !== "object") {
           continue;
         }
@@ -362,6 +364,7 @@ export function createSessionActions(context: SessionActionContext) {
       }
       state.historyLoaded = true;
     } catch (err) {
+      state.historyMessageCount = 0;
       chatLog.addSystem(`history failed: ${String(err)}`);
     }
     await refreshSessionInfo();
@@ -375,6 +378,7 @@ export function createSessionActions(context: SessionActionContext) {
     state.activeChatRunId = null;
     state.currentSessionId = null;
     state.historyLoaded = false;
+    state.historyMessageCount = 0;
     clearLocalRunIds?.();
     updateHeader();
     updateFooter();

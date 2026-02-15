@@ -94,6 +94,7 @@ export type TuiStateAccess = {
   currentSessionId: string | null;
   activeChatRunId: string | null;
   historyLoaded: boolean;
+  historyMessageCount: number;
   sessionInfo: SessionInfo;
   initialSessionApplied: boolean;
   isConnected: boolean;

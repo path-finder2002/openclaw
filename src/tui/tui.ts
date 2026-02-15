@@ -24,6 +24,7 @@ import {
 import { getSlashCommands } from "./commands.js";
 import { ChatLog } from "./components/chat-log.js";
 import { CustomEditor } from "./components/custom-editor.js";
+import { resolveCliFirstRunKickoff } from "./first-run-kickoff.js";
 import { GatewayChatClient } from "./gateway-chat.js";
 import { editorTheme, theme } from "./theme/theme.js";
 import { createCommandHandlers } from "./tui-command-handlers.js";
@@ -91,6 +92,7 @@ export async function runTui(opts: TuiOptions) {
   let currentSessionId: string | null = null;
   let activeChatRunId: string | null = null;
   let historyLoaded = false;
+  let historyMessageCount = 0;
   let isConnected = false;
   let wasDisconnected = false;
   let toolsExpanded = false;
@@ -99,6 +101,7 @@ export async function runTui(opts: TuiOptions) {
 
   const deliverDefault = opts.deliver ?? false;
   const autoMessage = opts.message?.trim();
+  const firstRunKickoff = autoMessage ? undefined : resolveCliFirstRunKickoff();
   let autoMessageSent = false;
   let sessionInfo: SessionInfo = {};
   let lastCtrlCAt = 0;
@@ -163,6 +166,12 @@ export async function runTui(opts: TuiOptions) {
     },
     set historyLoaded(value) {
       historyLoaded = value;
+    },
+    get historyMessageCount() {
+      return historyMessageCount;
+    },
+    set historyMessageCount(value) {
+      historyMessageCount = value;
     },
     get sessionInfo() {
       return sessionInfo;
@@ -673,6 +682,10 @@ export async function runTui(opts: TuiOptions) {
       if (!autoMessageSent && autoMessage) {
         autoMessageSent = true;
         await sendMessage(autoMessage);
+      }
+      if (!autoMessageSent && firstRunKickoff && historyMessageCount === 0) {
+        autoMessageSent = true;
+        await sendMessage(firstRunKickoff);
       }
       updateFooter();
       tui.requestRender();

@@ -21,6 +21,7 @@ describe("tui-event-handlers: handleAgentEvent", () => {
     currentSessionId: "session-1",
     activeChatRunId: "run-1",
     historyLoaded: true,
+    historyMessageCount: 0,
     sessionInfo: { verboseLevel: "on" },
     initialSessionApplied: true,
     isConnected: true,
